@@ -52,7 +52,7 @@ $\rho^2 = x^2 + x^2tan^2(\theta) + \rho^2cos^2(\phi)$
 
 $x = \sqrt{\frac{\rho^2(1 - cos^2\phi)}{1 + tan\theta}}$ and $y = xtan\theta$
 
-# placing the observer randomly at a point, but making sure it is 16 Mpc from the halo
+placing the observer randomly at a point, but making sure it is 16 Mpc from the halo
 
 ```
 def place_observer(d, r_halo):
@@ -103,7 +103,59 @@ def place_observer(d, r_halo):
 
 ```
 
+# Function to Rotate the coordinate system
 
+We rotate the cartesian coodinates in a way where one the three axies (x, y, and z) passes through the galactic halo with the origin being the location of the observer.  We do this because this is the actual coodinates system that we use to define the location of galaxies
+
+```
+def rotate_coordinates(rgals,robserver,rhalo):
+  import numpy as np
+  # calculate vector k
+   
+  ###   k = robserver - rhalo    
+  ###GV k should point from the observer to the halo
+  k=rhalo-robserver    ###GV
+  #print('halo =', rhalo) 
+  #print('obs =', robserver)
+  #print('k = ',k) 
+  # define the original y axis
+  y = np.array([0,1,0])
+  # calculate vector v = y x k
+
+  ###GV   v = np.cross(y,k)
+  ###GV   rotate k onto y  (not y onto k)
+  v = np.cross(k,y)    ###GV
+
+  #print('v = ',v)
+  # calculate vhat
+  vhat = v/np.linalg.norm(v)
+  #print(v)
+  #print('vhat = ',vhat)
+
+  # calculate theta (in radians)
+  theta = np.arccos(np.dot(y,k)/(np.linalg.norm(y)*np.linalg.norm(k)))
+  #print('theta in deg = ',np.degrees(theta))
+  # set up initial array for new rotated positions
+  #rgals_prime = np.zeros()
+  # loop through and calculate new position for each galaxy
+
+  ###GV Translate the universe so that the observer is at the origin
+  rgals=rgals-robserver
+  
+  ### GV pre-compute sin(theta) and cos(theta)  - faster code
+  ST=np.sin(theta)
+  CT=np.cos(theta)
+
+  A = rgals * CT
+  B = (np.cross(vhat, rgals)) *ST
+  C = vhat * (np.dot(vhat, rgals)) * (1 - CT)
+  #print('A = ',A)
+  #print('B = ',B)
+  #print('C = ',C)
+  rgals_prime = A+B+C
+
+  return rgals_prime
+  ```
 
 
 
