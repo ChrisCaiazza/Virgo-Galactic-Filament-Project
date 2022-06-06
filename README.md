@@ -105,7 +105,7 @@ def place_observer(d, r_halo):
 
 # Function to Rotate the coordinate system
 
-We rotate the cartesian coodinates in a way where one the three axies (x, y, and z) passes through the galactic halo with the origin being the location of the observer.  We do this because this is the actual coodinates system that we use to define the location of galaxies
+We rotate the cartesian coodinates in a way where one the three axies (x, y, and z) passes through the galactic halo with the origin being the location of the observer.  We do this because this is the actual coodinates system that we use to define the location of galaxies.  Here, we make use of the Rodriguez Rotational Formula.
 
 ```
 def rotate_coordinates(rgals,robserver,rhalo):
@@ -156,6 +156,56 @@ def rotate_coordinates(rgals,robserver,rhalo):
 
   return rgals_prime
   ```
+# Function to calculate reccessional or line of sight velocity
 
+This takes into account the peculair motion of galaxies as well as the Hubble Flow.  The reccessional velocity calculated here would correspond to a measured redshift.
+
+```
+def v_los(ro, vo, rg, vg, testing = False):
+  ''' 
+  GOAL: Gives the velocity along the line of sight if you know the positons of galaxy and observer velocity of the galaxy
+  
+  ARGUMENTS:
+  ro = position vector of the observer 1x3 array containing (x,y,z)
+  vo = velocity vector of the observer; 1x3 array containing (vx,vy,vz)
+  rg = position vector of the galaxies; Nx3 array
+  vg = velocity vector of the galaxies
+  testing = Hubble flow only, not adding peculair velocities is testing is True
+
+  RETURNS:
+  v_los = line-of-sight velocity of galaxy relative to observer
+  '''  
+  
+  # calculate the velocity difference between the observer and galaxy
+  v = vg.T - vo
+
+  # calculate dot product of vel offset and position unit vector
+  # this gives the component of velocity along the line of sight
+  v_los = np.zeros(len(v), 'd')
+
+  for i in range(len(v)):
+    # calculate 3D offset b/w galaxy and observer
+    # this is the vector that connects the galaxy to the observer
+    dr = rg.T[i] - ro
+    # normalize the offset vector
+    r_u = (dr / np.linalg.norm(dr)) #* .73 * 3.0875e19 # r is in units of Mpc / h where h = 0.73 and 1Mpc = 3.0857e19 km.  This then gives the velocity in units of km/s.
+    # take dot product of dr and velocity
+    # here we are using velocity difference between galaxy and observer
+    # this returns the velocity along the offset vector, which is the LOS velocity
+    v_los[i] = np.dot(r_u, v[i])
+
+    # adding hubble flow to velocity in the line of sight.
+    # The velocity from the hubble flow is the distance from the galaxy
+    # times the hubble constant
+    if testing:
+      v_los[i] = np.linalg.norm(dr)*70  
+
+    else:
+      v_los[i] += np.linalg.norm(dr)*70  
+     
+
+  return v_los 
+
+  ```
 
 
