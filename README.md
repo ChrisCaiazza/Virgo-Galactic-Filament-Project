@@ -207,5 +207,198 @@ def v_los(ro, vo, rg, vg, testing = False):
   return v_los 
 
   ```
+  
+  # Function to make plots that show the galaxies based on location and reccessional velocity
+  
+  ```
+  # Trying to make a function that just takes in the file and makes all the plots for us
+
+def plot_simulations(Test , num = 2, R = 16):
+
+  ''' Do we want to test or not based on Hubble Flow? Must be True or False '''
+  ''' num controls which box we are using '''
+  ''' R is 16 by defualt beucase we want to be 16 MPc away from the halo '''
+
+
+  # First, we have to read in the file using the read_in function
+
+  # Valid one with only one halo are 
+  # 2, 3, 7, 10
+
+  if num == 2:
+    data = read_in('/content/gdrive/My Drive/DeLucia-tables/cats_virgo_DLB07_z0.00_2.dat')
+
+  elif num == 3:
+    data = read_in('/content/gdrive/My Drive/DeLucia-tables/cats_virgo_DLB07_z0.00_3.dat')
+
+  elif num == 7:
+    data = read_in('/content/gdrive/My Drive/DeLucia-tables/cats_virgo_DLB07_z0.00_7.dat')
+  
+  elif num == 10:
+    data = read_in('/content/gdrive/My Drive/DeLucia-tables/cats_virgo_DLB07_z0.00_10.dat')
+
+
+  # Simulate the observer
+
+  ###################################################################################################################
+
+  xmin, xmax = min(data['x']), max(data['x']) # Want to fond the halo in data
+  ymin, ymax = min(data['y']), max(data['y'])
+  zmin, zmax = min(data['z']), max(data['z'])
+
+  # create boolean flags to find the halos/cluster that are within this box
+  flagx = (halo['x'] > xmin) & (halo['x'] < xmax) # boundries for the flag
+  flagy = (halo['y'] > ymin) & (halo['y'] < ymax)
+  flagz = (halo['z'] > zmin) & (halo['z'] < zmax)
+  flag = flagx & flagy & flagz
+
+  # This is the position of the singular halo in the data frame
+  rhalo = np.array([halo['x'][flag][0], halo['y'][flag][0], halo['z'][flag][0]])
+  
+  # observer's new coordinates based on the halo location.
+  # place observer 16 Mpc from the halo to replicate our distance from Virgo
+  robs = place_observer(R, rhalo) 
+
+  # create array with position of galaxies
+  rgals = np.array([data['x'], data['y'], data['z']])
+
+  # determine the galaxy positions relative to the new observer
+  rgals_prime = []
+
+  for i, rg in enumerate(rgals.T):
+    rgals_prime.append(rotate_coordinates(rg, robs, rhalo))
+  
+  # create array with veloctiy of galaxies
+  vgals = np.array([data['vx'], data['vy'], data['vz']])
+
+  rgals_prime = np.array(rgals_prime)
+
+  vobs= np.array([0,0,0],'d')
+
+  
+
+  # Plotting the figures
+
+  recession_vel = v_los(robs, vobs, rgals, vgals, testing = Test)
+  # Test from the argument put in the function. recessional velocities are 
+  # Based on whether Test is passed in as True or False
+
+  plt.figure(figsize = (14, 8))
+  plt.title('Distance From Observer color coded with Recessional Velocity')
+
+
+  ymin = np.arange(0, 29, 4)
+  ymax = np.arange(4, 33, 4)
+
+  nplot = 0
+  allax = []
+  for y1, y2 in zip(ymin, ymax):
+
+    #print(y1, y2)
+    nplot += 1
+    plt.subplot(2, 4, nplot)
+    plt.title('Galaxies between {} and {} Mpc'.format(y1, y2))
+    flag = (rgals_prime[:,1] < y2) & (rgals_prime[:,1] > y1)
+    plt.scatter(rgals_prime[:,0][flag], rgals_prime[:,2][flag], c=recession_vel[flag], cmap= 'viridis', s = 5, vmin = 0, vmax = 5500) # This keeps all of the plots
+    # in the same range so they can be reliably compared with eachother.
+    allax.append(plt.gca())
+
+    plt.colorbar()
+    
+
+  ######################################### recession velocity slices #############
+
+  plt.figure(figsize = (20, 20))
+
+  # This is just a starting range
+  vmin = np.arange(300, 3000, 300)
+  vmax = vmin + 300
+  distance = np.linalg.norm(rgals_prime, axis = 1)
+  nplot = 0
+  for v1, v2 in zip(vmin, vmax):  # Lets us go through through vmin and vmax at the same time
+  
+    #print(vmin, vmax)
+    nplot += 1
+    plt.subplot(3, 3, nplot)
+  
+    flag = (recession_vel < v2) & (recession_vel > v1) # This flag is used to grab all the galaxies within these reccesional velocity ranges
+
+    H0 = 70
+    d_min = v1/H0
+    d_max = v2/H0
+  
+  
+    dflag = (distance > d_min) & (distance < d_max)
+    #dflag = (rgals_prime[:,1] > d_min) & (rgals_prime[:,1] < d_max)
+    final_flag = flag & dflag
+
+    cflag = flag & ~dflag # contamination flag
+  
+    plt.plot(rgals_prime[:,0][cflag], rgals_prime[:,2][cflag], 'o', c='0.5', markersize = 1, alpha = 0.5)
+
+    plt.scatter(rgals_prime[:,0][final_flag], rgals_prime[:,2][final_flag], c=rgals_prime[:,1][final_flag], cmap= 'viridis', s = 10, vmin = d_min, vmax = d_max)
+
+    # Getting the contamination fraction
+
+    num_contam = len(rgals_prime[cflag]) # contaminated number
+    total = len(rgals_prime[flag]) # all the galaxies in the reccessional velocity range
+  
+    cf = num_contam / total # contamination fraction
+  
+    plt.title(' {} and {} km/s, cf = {:.2f}'.format(v1, v2, cf))
+    # vmin and vmax in this line of code are not the same vmin and max when the loop is started!!  vmin and cmax are instead key words here to
+    # set the limits of our color bar.  
+
+    # plt.scatter(rgals_prime[:,0][flag], rgals_prime[:,2][flag], c=rgals_prime[:,1][flag], cmap= 'viridis', s = 5, vmin = 0, vmax= 80) # This keeps all of the plots
+    # in the same range so they can be reliably compared with eachother.
+    allax.append(plt.gca())
+
+  ################################# making general plot sliced in Reccessional Velocities #######################
+  #####################################################################################
+
+  plt.figure(figsize = (20, 20))
+  nplot = 0
+    # This is just a starting range
+  
+  for v1, v2 in zip(vmin, vmax):  # Lets us go through through vmin and vmax at the same time
+  
+    #print(vmin, vmax)
+    nplot += 1
+    #plt.subplot(3, 3, nplot)
+    plt.figure(figsize = (6, 6))
+  
+    flag = (recession_vel < v2) & (recession_vel > v1) # This flag is used to grab all the galaxies within these reccesional velocity ranges
+
+    H0 = 70
+    d_min = v1/H0
+    d_max = v2/H0
+  
+  
+    dflag = (distance > d_min) & (distance < d_max)
+    #dflag = (rgals_prime[:,1] > d_min) & (rgals_prime[:,1] < d_max)
+    final_flag = flag & dflag
+
+    cflag = flag & ~dflag # contamination flag
+  
+    plt.plot(rgals_prime[:,0][flag], rgals_prime[:,2][flag], 'o', c='0.5', markersize = 2, alpha = 0.5)
+
+    #plt.scatter(rgals_prime[:,0][final_flag], rgals_prime[:,2][final_flag], c=rgals_prime[:,1][final_flag], cmap= 'viridis', s = 10, vmin = d_min, vmax = d_max)
+
+    # Getting the contamination fraction
+
+    num_contam = len(rgals_prime[cflag]) # contaminated number
+    total = len(rgals_prime[flag]) # all the galaxies in the reccessional velocity range
+  
+    cf = num_contam / total # contamination fraction
+  
+    plt.title(' {} and {} km/s'.format(v1, v2))
+    # vmin and vmax in this line of code are not the same vmin and max when the loop is started!!  vmin and cmax are instead key words here to
+    # set the limits of our color bar.  
+
+    # plt.scatter(rgals_prime[:,0][flag], rgals_prime[:,2][flag], c=rgals_prime[:,1][flag], cmap= 'viridis', s = 5, vmin = 0, vmax= 80) # This keeps all of the plots
+    # in the same range so they can be reliably compared with eachother.
+    allax.append(plt.gca())
+
+```
 
 
